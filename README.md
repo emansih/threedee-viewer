@@ -2,7 +2,7 @@ This is a Kotlin Multiplatform project targeting Android, Desktop (JVM), Web, bu
 
 ## Product Render
 
-Upload a GLB (for example the bottle from `hikyaku/bottle-commercial`) and the app renders it with [SceneView](https://sceneview.github.io/). Then upload a PNG or JPEG and it is printed on the bottle.
+Upload a GLB (for example a bottle with a `hero_print` material) and the app renders it with [SceneView](https://sceneview.github.io/). Then upload a PNG or JPEG and it is printed on the bottle.
 
 - **Print area:** the material named `hero_print`. The image is stretched to fill it: once around, centred on the front, from the base edge to the cap joint, whatever its aspect ratio; its left and right edges meet at the back. The area is 236 × 111 mm, so a 2.13 : 1 image (e.g. 2360 × 1110 px) goes on undistorted. Transparent pixels show the material's own colour. A GLB without `hero_print` still renders, but can't take an image.
 - **How:** [`BottlePrint`](shared/src/glb/BottlePrint.kt) embeds the image in the GLB bytes as `hero_print`'s base colour texture, mapped onto the print area's own UVs, so every renderer shows the same result.
@@ -42,3 +42,7 @@ Run the project's tests with `./kotlin test`, or `./kotlin test -m <module>` for
 ---
 
 Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html), [Kotlin Toolchain](https://kotlin-toolchain.org/dev/), [Compose Multiplatform](https://kotlinlang.org/compose-multiplatform/), [Kotlin/Wasm](https://kotl.in/wasm/).
+
+## License
+
+[GNU Affero General Public License v3.0](LICENSE).
