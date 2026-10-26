@@ -2,6 +2,12 @@ product:
   type: kmp/lib
   platforms: [ jvm, android, wasmJs ]
 
+aliases:
+  # SceneView's Compose viewer ships Android and desktop variants only; web uses sceneview.js
+  - sceneView: [ jvm, android ]
+  # Platforms whose images are decoded and encoded with Skia
+  - skiko: [ jvm, wasmJs ]
+
 dependencies:
   - $compose.runtime
   - $compose.foundation
@@ -12,11 +18,21 @@ dependencies:
   - $compose.hotReload.runtimeApi
   - $libs.androidx.lifecycle.viewmodel.compose
   - $libs.androidx.lifecycle.runtime.compose
+  - $libs.kotlinx.serialization.json
+  - $libs.filekit.dialogs.compose
+
+dependencies@sceneView:
+  - $libs.sceneview.compose
 
 dependencies@android:
   - $compose.uiTooling
 
+test-dependencies:
+  - $kotlin.test
+
 settings:
+  kotlin:
+    serialization: enabled
   compose:
     enabled: true
     resources:
