@@ -1,12 +1,13 @@
 # Packages the desktop app for Windows with jpackage (JDK 21+; SceneView's desktop renderer needs 21).
 #   .\desktopApp\package-windows.ps1              # MSI installer (needs the WiX Toolset)
 #   .\desktopApp\package-windows.ps1 -Type exe    # EXE installer (needs the WiX Toolset)
-#   .\desktopApp\package-windows.ps1 -Type app-image   # portable folder with ProductRender.exe, no WiX needed
+#   .\desktopApp\package-windows.ps1 -Type app-image   # portable folder with "Product Render.exe", no WiX needed
 # Output: build\jpackage
 param(
     [ValidateSet("msi", "exe", "app-image")] [string] $Type = "msi",
     [string] $Jpackage = "jpackage",
-    [string] $Version = "1.0.0",
+    # Raise it for every installer you hand out: Windows Installer only upgrades to a higher version
+    [string] $Version = "1.0.1",
     # WiX 3 (candle.exe, light.exe); found on the PATH when not given. JDK 23's jpackage needs WiX 3.
     [string] $WixDir = "$env:LOCALAPPDATA\Programs\wix314"
 )
@@ -49,7 +50,8 @@ foreach ($lib in Get-ChildItem $staging) {
 
 $arguments = @(
     "--type", $Type,
-    "--name", "ProductRender",
+    # The Start menu shortcut and the install folder take this name, so it's what Windows search finds
+    "--name", "Product Render",
     "--app-version", $Version,
     "--vendor", "Product Render",
     "--input", $staging,
@@ -60,7 +62,7 @@ $arguments = @(
     "--java-options", "--enable-native-access=ALL-UNNAMED"
 )
 if ($Type -ne "app-image") {
-    $arguments += @("--win-menu", "--win-shortcut", "--win-dir-chooser", "--win-upgrade-uuid", "6f7c3d1e-2b8a-4c5e-9f1d-3a7b5e9c2d40")
+    $arguments += @("--win-menu", "--win-menu-group", "Product Render", "--win-shortcut", "--win-dir-chooser", "--win-upgrade-uuid", "6f7c3d1e-2b8a-4c5e-9f1d-3a7b5e9c2d40")
 }
 & $Jpackage @arguments
 if ($LASTEXITCODE -ne 0) { throw "jpackage failed" }
