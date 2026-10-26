@@ -1,5 +1,24 @@
 This is a Kotlin Multiplatform project targeting Android, Desktop (JVM), Web, built with the [Kotlin Toolchain](https://kotlin-toolchain.org/dev/).
 
+## Product Render
+
+Upload a GLB (for example the bottle from `hikyaku/bottle-commercial`) and the app renders it with [SceneView](https://sceneview.github.io/). Then upload a PNG or JPEG and it is printed on the bottle.
+
+- **Print area:** the material named `hero_print`. The image goes once around it, the way bottle-commercial's `print_wrap()` places it: centred on the front and on mid-height, keeping its aspect ratio, cropped top and bottom (or mirrored, if too short). The area is 236 × 111 mm, so a 2.13 : 1 image (e.g. 2360 × 1110 px) fits exactly. Transparent pixels show the material's own colour. A GLB without `hero_print` still renders, but can't take an image.
+- **How:** [`BottlePrint`](shared/src/glb/BottlePrint.kt) embeds the image in the GLB bytes as `hero_print`'s base colour texture, with a `KHR_texture_transform` doing the fitting, so every renderer shows the same result.
+- **Renderers:** SceneView's Compose viewer (`sceneview-compose`) on Android and desktop. It has no Kotlin/Wasm variant, so the web app draws with SceneView's `sceneview.js` (Filament.js), loaded from sceneview.github.io by [index.html](webApp/resources/index.html), on a canvas laid over the Compose UI ([ModelViewer.wasmJs.kt](shared/src@wasmJs/viewer/ModelViewer.wasmJs.kt)). The web app needs internet access for it.
+- JVM code targets Java 21, the oldest JDK SceneView's desktop renderer runs on.
+
+### Windows installer
+
+```powershell
+.\desktopApp\package-windows.ps1                   # MSI, needs the WiX Toolset
+.\desktopApp\package-windows.ps1 -Type exe         # EXE installer, needs the WiX Toolset
+.\desktopApp\package-windows.ps1 -Type app-image   # portable folder with ProductRender.exe
+```
+
+It uses `jpackage` from the PATH (JDK 21+; pass `-Jpackage <path>` for another one) and writes to `build\jpackage`. It ships the libraries as separate jars rather than the toolchain's executable jar, because that jar keeps one library per file name and loses Compose's runtime to a same-named stub.
+
 - [/androidApp](./androidApp) contains the Android application.
 - [/desktopApp](./desktopApp) contains the desktop (JVM) application.
 - [/shared](./shared) holds the code shared across your applications — Compose UI, business logic, and platform-specific implementations. [src](./shared/src) is for common code; the sibling `src@<platform>` folders (for example `src@android`) hold code compiled only for the platform named in the folder.

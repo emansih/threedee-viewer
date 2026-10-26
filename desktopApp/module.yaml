@@ -11,3 +11,5 @@ settings:
   compose: enabled
   jvm:
     mainClass: com.hisname.productrender.MainKt
+    # See shared/module.yaml
+    release: 21

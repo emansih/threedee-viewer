@@ -31,6 +31,9 @@ test-dependencies:
   - $kotlin.test
 
 settings:
+  # Java 21 bytecode: the oldest JDK SceneView's desktop renderer runs on, so any JDK 21+ can run and package the app
+  jvm:
+    release: 21
   kotlin:
     serialization: enabled
   compose:
