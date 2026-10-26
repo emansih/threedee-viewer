@@ -7,7 +7,7 @@ param(
     [ValidateSet("msi", "exe", "app-image")] [string] $Type = "msi",
     [string] $Jpackage = "jpackage",
     # Raise it for every installer you hand out: Windows Installer only upgrades to a higher version
-    [string] $Version = "1.0.1",
+    [string] $Version = "1.0.2",
     # WiX 3 (candle.exe, light.exe); found on the PATH when not given. JDK 23's jpackage needs WiX 3.
     [string] $WixDir = "$env:LOCALAPPDATA\Programs\wix314"
 )
