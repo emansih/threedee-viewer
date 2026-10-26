@@ -6,9 +6,12 @@
 param(
     [ValidateSet("msi", "exe", "app-image")] [string] $Type = "msi",
     [string] $Jpackage = "jpackage",
-    [string] $Version = "1.0.0"
+    [string] $Version = "1.0.0",
+    # WiX 3 (candle.exe, light.exe); found on the PATH when not given. JDK 23's jpackage needs WiX 3.
+    [string] $WixDir = "$env:LOCALAPPDATA\Programs\wix314"
 )
 $ErrorActionPreference = "Stop"
+if (Test-Path (Join-Path $WixDir "candle.exe")) { $env:PATH = "$WixDir;$env:PATH" }
 $root = Split-Path $PSScriptRoot -Parent
 Set-Location $root
 

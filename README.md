@@ -17,7 +17,7 @@ Upload a GLB (for example the bottle from `hikyaku/bottle-commercial`) and the a
 .\desktopApp\package-windows.ps1 -Type app-image   # portable folder with ProductRender.exe
 ```
 
-It uses `jpackage` from the PATH (JDK 21+; pass `-Jpackage <path>` for another one) and writes to `build\jpackage`. It ships the libraries as separate jars rather than the toolchain's executable jar, because that jar keeps one library per file name and loses Compose's runtime to a same-named stub.
+It uses `jpackage` from the PATH (JDK 21+; pass `-Jpackage <path>` for another one) and writes to `build\jpackage`. JDK 23's jpackage needs WiX 3: the script uses `%LOCALAPPDATA%\Programs\wix314` (the unpacked `wix314-binaries.zip` from the WiX GitHub releases, which needs no admin rights or .NET 3.5) when it's there, or pass `-WixDir`. It ships the libraries as separate jars rather than the toolchain's executable jar, because that jar keeps one library per file name and loses Compose's runtime to a same-named stub.
 
 - [/androidApp](./androidApp) contains the Android application.
 - [/desktopApp](./desktopApp) contains the desktop (JVM) application.
