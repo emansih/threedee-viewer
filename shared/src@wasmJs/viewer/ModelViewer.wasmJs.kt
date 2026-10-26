@@ -31,8 +31,9 @@ actual fun ModelViewer(glb: ByteArray, modifier: Modifier, onError: (String) -> 
             .onFailure { currentOnError("Could not start the 3D viewer: ${it.message}") }
             .getOrNull()
     }
-    DisposableEffect(viewer) {
-        onDispose { viewer?.dispose() }
+    val created = viewer
+    DisposableEffect(created) {
+        onDispose { created?.dispose() }
     }
     LaunchedEffect(viewer, glb) {
         val sceneView = viewer ?: return@LaunchedEffect
@@ -40,8 +41,8 @@ actual fun ModelViewer(glb: ByteArray, modifier: Modifier, onError: (String) -> 
         try {
             sceneView.loadModel(url).await<JsAny?>()
         } catch (e: Throwable) {
-            // A newer loadModel() replacing this one rejects with an AbortError; that's not a failure
-            if (e.message?.contains("replaced by a later") != true) currentOnError("Could not show the model: ${e.message}")
+            // A newer loadModel(), or disposing the viewer, rejects this one with an AbortError: not a failure
+            if (e.message?.contains("AbortError") != true) currentOnError("Could not show the model: ${e.message}")
         } finally {
             revokeBlobUrl(url)
         }
@@ -77,7 +78,8 @@ private external fun removeOverlayCanvas(canvas: Canvas)
 @JsFun("(c, left, top, width, height) => { c.style.left = left + 'px'; c.style.top = top + 'px'; c.style.width = width + 'px'; c.style.height = height + 'px'; }")
 private external fun placeOverlayCanvas(canvas: Canvas, left: Float, top: Float, width: Float, height: Float)
 
-@JsFun("(c) => SceneView.create(c)")
+// The default lighting comes from SceneView's CDN, like sceneview.js itself; its default path is relative to this site
+@JsFun("(c) => SceneView.create(c, { iblUrl: 'https://sceneview.github.io/environments/neutral_ibl.ktx' })")
 private external fun createSceneView(canvas: Canvas): Promise<SceneViewJs>
 
 @JsFun("(bytes) => URL.createObjectURL(new Blob([bytes], { type: 'model/gltf-binary' }))")
