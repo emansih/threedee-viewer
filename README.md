@@ -4,9 +4,10 @@ This is a Kotlin Multiplatform project targeting Android, Desktop (JVM), Web, bu
 
 Upload a GLB (for example the bottle from `hikyaku/bottle-commercial`) and the app renders it with [SceneView](https://sceneview.github.io/). Then upload a PNG or JPEG and it is printed on the bottle.
 
-- **Print area:** the material named `hero_print`. The image goes once around it, the way bottle-commercial's `print_wrap()` places it: centred on the front and on mid-height, keeping its aspect ratio, cropped top and bottom (or mirrored, if too short). The area is 236 × 111 mm, so a 2.13 : 1 image (e.g. 2360 × 1110 px) fits exactly. Transparent pixels show the material's own colour. A GLB without `hero_print` still renders, but can't take an image.
-- **How:** [`BottlePrint`](shared/src/glb/BottlePrint.kt) embeds the image in the GLB bytes as `hero_print`'s base colour texture, with a `KHR_texture_transform` doing the fitting, so every renderer shows the same result.
+- **Print area:** the material named `hero_print`. The image is stretched to fill it: once around, centred on the front, from the base edge to the cap joint, whatever its aspect ratio; its left and right edges meet at the back. The area is 236 × 111 mm, so a 2.13 : 1 image (e.g. 2360 × 1110 px) goes on undistorted. Transparent pixels show the material's own colour. A GLB without `hero_print` still renders, but can't take an image.
+- **How:** [`BottlePrint`](shared/src/glb/BottlePrint.kt) embeds the image in the GLB bytes as `hero_print`'s base colour texture, mapped onto the print area's own UVs, so every renderer shows the same result.
 - **Renderers:** SceneView's Compose viewer (`sceneview-compose`) on Android and desktop. It has no Kotlin/Wasm variant, so the web app draws with SceneView's `sceneview.js` (Filament.js), loaded from sceneview.github.io by [index.html](webApp/resources/index.html), on a canvas laid over the Compose UI ([ModelViewer.wasmJs.kt](shared/src@wasmJs/viewer/ModelViewer.wasmJs.kt)). The web app needs internet access for it.
+- **Lighting:** SceneView's desktop viewer has no light from all around by default, so the side facing away from its sun would render black; desktop lights the model with a neutral grey studio, [studio.hdr](shared/resources@jvm/environments/studio.hdr). Android and the web use SceneView's own default environment.
 - JVM code targets Java 21, the oldest JDK SceneView's desktop renderer runs on.
 
 ### Windows installer

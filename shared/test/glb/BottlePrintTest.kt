@@ -92,15 +92,11 @@ class BottlePrintTest {
         // the BIN chunk is padded to 4 bytes; the buffer keeps its exact length
         assertEquals(offset + image.bytes.size, json.at("buffers", 0).int("byteLength"))
         assertEquals(0, patched.bin.size % 4)
-        assertEquals(33648, json.at("samplers", texture.int("sampler")).int("wrapS"))
+        assertEquals(33071, json.at("samplers", texture.int("sampler")).int("wrapS"))
         assertEquals(List(4) { 1.0 }, material.at("pbrMetallicRoughness")["baseColorFactor"]!!.jsonArray.map { it.jsonPrimitive.double })
-        assertTrue(json["extensionsUsed"]!!.jsonArray.any { it.jsonPrimitive.content == "KHR_texture_transform" })
 
-        // once around, centred: a 2:1 image is taller than the 236:111 wrap, so it's cropped top and bottom
-        val transform = textureInfo.at("extensions", "KHR_texture_transform")
-        val scaleV = 2.0 / (236.0 / 111.0)
-        assertEquals(listOf(1.0, scaleV), transform["scale"]!!.jsonArray.map { it.jsonPrimitive.double })
-        assertEquals(listOf(0.0, 0.5 - scaleV / 2), transform["offset"]!!.jsonArray.map { it.jsonPrimitive.double })
+        // stretched over the print area's own UVs, whatever the image's aspect ratio
+        assertFalse(textureInfo.containsKey("extensions"))
     }
 
     @Test

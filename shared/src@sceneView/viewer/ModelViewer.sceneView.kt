@@ -6,12 +6,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.hisname.productrender.glb.glbBounds
 import dev.romainguy.kotlin.math.Float3
+import io.github.sceneview.compose.EnvironmentSource
 import io.github.sceneview.compose.ModelSource
 import io.github.sceneview.compose.SceneViewer
 import io.github.sceneview.compose.rememberUnsavedCameraState
 
 /** Camera distance in bounding radii: fits the model in a 45° field of view, with a margin. */
 private const val FRAMING = 3f
+
+/** The light from all around the model: a neutral studio, so no side of it is left black. */
+internal expect val viewerEnvironment: EnvironmentSource
 
 @Composable
 actual fun ModelViewer(glb: ByteArray, modifier: Modifier, onError: (String) -> Unit) {
@@ -27,6 +31,7 @@ actual fun ModelViewer(glb: ByteArray, modifier: Modifier, onError: (String) -> 
         model = remember(glb) { ModelSource.Bytes(glb) },
         modifier = modifier,
         camera = camera,
+        environment = viewerEnvironment,
         onError = { onError(it.message) },
     )
 }

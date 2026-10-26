@@ -4,7 +4,6 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.double
@@ -12,31 +11,24 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
-import kotlinx.serialization.json.putJsonObject
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
 class NoPrintAreaException : Exception("This model has no '${BottlePrint.MATERIAL}' material to print on")
 
 /**
- * Puts an image on the bottle's print area, the way bottle-commercial's `print_wrap()` does:
- * the image goes once around, centred on the front and on mid-height, keeping its aspect
- * ratio, cropped top and bottom (or mirrored, if too short) to fit.
+ * Puts an image on the bottle's print area, stretched to fill it: once around, centred on
+ * the front, and from the base edge to the cap joint, whatever the image's aspect ratio.
  *
- * The print area's UVs run once around (u, seam at the back, 0.5 at the front) and from the
- * base edge to the cap joint (v), so a KHR_texture_transform on those UVs does the fitting.
+ * The print area's UVs already run once around (u, seam at the back, 0.5 at the front) and
+ * from the base edge to the cap joint (v), so the image maps onto them as it is.
  */
 object BottlePrint {
     const val MATERIAL = "hero_print"
 
-    /** The print area's circumference / height: 236 × 111 mm on bottle-commercial's bottle. */
-    private const val PRINT_ASPECT = 236.0 / 111.0
-
     private const val LINEAR = 9729
     private const val LINEAR_MIPMAP_LINEAR = 9987
-    private const val MIRRORED_REPEAT = 33648
-    private const val TEXTURE_TRANSFORM = "KHR_texture_transform"
+    private const val CLAMP_TO_EDGE = 33071
 
     fun hasPrintArea(glb: ByteArray): Boolean = printMaterialIndex(Glb.parse(glb).json) != null
 
@@ -75,27 +67,13 @@ object BottlePrint {
         val samplerIndex = json.array("samplers").size
         val textureIndex = json.array("textures").size
 
-        val scaleV = image.width.toDouble() / image.height / PRINT_ASPECT
-        val textureInfo = buildJsonObject {
-            put("index", textureIndex)
-            putJsonObject("extensions") {
-                putJsonObject(TEXTURE_TRANSFORM) {
-                    putJsonArray("offset") { add(0.0); add(0.5 - scaleV / 2) }
-                    putJsonArray("scale") { add(1.0); add(scaleV) }
-                }
-            }
-        }
+        val textureInfo = buildJsonObject { put("index", textureIndex) }
         val materials = json.array("materials").toMutableList()
         materials[materialIndex] = material.with(
             "pbrMetallicRoughness",
             pbr.with("baseColorTexture", textureInfo)
                 .with("baseColorFactor", JsonArray(List(4) { JsonPrimitive(1.0) })),
         )
-
-        val extensionsUsed = json.array("extensionsUsed").let {
-            if (it.any { e -> e.jsonPrimitive.contentOrNull == TEXTURE_TRANSFORM }) it
-            else JsonArray(it + JsonPrimitive(TEXTURE_TRANSFORM))
-        }
         val patched = json
             .with("buffers", JsonArray(listOf(
                 (buffers.firstOrNull()?.jsonObject ?: JsonObject(emptyMap())).with("byteLength", JsonPrimitive(newBin.size)),
@@ -108,15 +86,15 @@ object BottlePrint {
             .with("samplers", JsonArray(json.array("samplers") + buildJsonObject {
                 put("magFilter", LINEAR)
                 put("minFilter", LINEAR_MIPMAP_LINEAR)
-                put("wrapS", MIRRORED_REPEAT)
-                put("wrapT", MIRRORED_REPEAT)
+                // the UVs reach just past 1 at the back seam: clamp rather than repeat a sliver
+                put("wrapS", CLAMP_TO_EDGE)
+                put("wrapT", CLAMP_TO_EDGE)
             }))
             .with("textures", JsonArray(json.array("textures") + buildJsonObject {
                 put("sampler", samplerIndex)
                 put("source", imageIndex)
             }))
             .with("materials", JsonArray(materials))
-            .with("extensionsUsed", extensionsUsed)
         return Glb(patched, newBin).toBytes()
     }
 
