@@ -40,23 +40,44 @@ import org.jetbrains.compose.reload.DevelopmentEntryPoint
 @Composable
 @Preview
 @DevelopmentEntryPoint
-fun App() {
+fun App(shared: suspend () -> SharedView? = { null }, shareLink: (suspend (ByteArray, PrintImage?) -> Int)? = null) {
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
-            ProductRender(Modifier.safeContentPadding().fillMaxSize())
+            ProductRender(shared, shareLink, Modifier.safeContentPadding().fillMaxSize())
         }
     }
 }
 
+/** A model and print the app starts with, for example from a shared link. */
+class SharedView(val model: ByteArray, val print: PrintImage?)
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ProductRender(modifier: Modifier = Modifier) {
+private fun ProductRender(shared: suspend () -> SharedView?, shareLink: (suspend (ByteArray, PrintImage?) -> Int)?, modifier: Modifier = Modifier) {
     var model by remember { mutableStateOf<ByteArray?>(null) }
     var print by remember { mutableStateOf<PrintImage?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var working by remember { mutableStateOf(false) }
+    var notice by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val capture = remember { ViewerCapture() }
+
+    LaunchedEffect(Unit) {
+        working = true
+        try {
+            shared()?.let {
+                Glb.parse(it.model)
+                model = it.model
+                print = it.print
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            error = "The shared link can't be shown: ${e.message}"
+        } finally {
+            working = false
+        }
+    }
 
     val canPrint = remember(model) { model?.let { BottlePrint.hasPrintArea(it) } ?: false }
     // The model as shown: the uploaded GLB with the image on its print area, if there is one
@@ -122,6 +143,24 @@ private fun ProductRender(modifier: Modifier = Modifier) {
         }
     }
 
+    val copyLink: () -> Unit = {
+        val glb = model
+        if (glb != null && shareLink != null) scope.launch {
+            working = true
+            try {
+                val kb = shareLink(glb, print)
+                notice = "Link copied ($kb KB). It holds the model and image, so anyone it reaches can open it."
+                error = null
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = "Couldn't make the link: ${e.message}"
+            } finally {
+                working = false
+            }
+        }
+    }
+
     Column(modifier) {
         if (model != null) {
             FlowRow(
@@ -137,11 +176,13 @@ private fun ProductRender(modifier: Modifier = Modifier) {
                 }
                 OutlinedButton(onClick = { modelPicker.launch() }, enabled = !working) { Text("Replace GLB") }
                 OutlinedButton(onClick = exportImage, enabled = !working) { Text("Export Image") }
+                if (shareLink != null) OutlinedButton(onClick = copyLink, enabled = !working) { Text("Copy link") }
             }
             if (!canPrint) {
                 Message("This model has no '${BottlePrint.MATERIAL}' material, so an image can't be put on it.")
             }
         }
+        notice?.let { Message(it) }
         error?.let { Message(it, isError = true) }
         if (working) LinearProgressIndicator(Modifier.fillMaxWidth())
 

@@ -12,3 +12,4 @@ xcuserdata
 .idea/
 local.properties
 *.msi
+samples/

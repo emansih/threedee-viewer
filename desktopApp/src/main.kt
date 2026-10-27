@@ -4,7 +4,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 
 fun main() = application {
-    Window(onCloseRequest = ::exitApplication, title = "Product Render") {
+    Window(onCloseRequest = ::exitApplication, title = "ThreeDee Viewer") {
         App()
     }
 }

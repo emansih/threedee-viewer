@@ -1,7 +1,7 @@
 # Packages the desktop app for Windows with jpackage (JDK 21+; SceneView's desktop renderer needs 21).
 #   .\desktopApp\package-windows.ps1              # MSI installer (needs the WiX Toolset)
 #   .\desktopApp\package-windows.ps1 -Type exe    # EXE installer (needs the WiX Toolset)
-#   .\desktopApp\package-windows.ps1 -Type app-image   # portable folder with "Product Render.exe", no WiX needed
+#   .\desktopApp\package-windows.ps1 -Type app-image   # portable folder with "ThreeDee Viewer.exe", no WiX needed
 # Output: build\jpackage
 param(
     [ValidateSet("msi", "exe", "app-image")] [string] $Type = "msi",
@@ -51,9 +51,9 @@ foreach ($lib in Get-ChildItem $staging) {
 $arguments = @(
     "--type", $Type,
     # The Start menu shortcut and the install folder take this name, so it's what Windows search finds
-    "--name", "Product Render",
+    "--name", "ThreeDee Viewer",
     "--app-version", $Version,
-    "--vendor", "Product Render",
+    "--vendor", "ThreeDee Viewer",
     "--input", $staging,
     "--main-jar", "desktopApp-jvm.jar",
     "--main-class", "com.hisname.productrender.MainKt",
@@ -62,7 +62,7 @@ $arguments = @(
     "--java-options", "--enable-native-access=ALL-UNNAMED"
 )
 if ($Type -ne "app-image") {
-    $arguments += @("--win-menu", "--win-menu-group", "Product Render", "--win-shortcut", "--win-dir-chooser", "--win-upgrade-uuid", "6f7c3d1e-2b8a-4c5e-9f1d-3a7b5e9c2d40")
+    $arguments += @("--win-menu", "--win-menu-group", "ThreeDee Viewer", "--win-shortcut", "--win-dir-chooser", "--win-upgrade-uuid", "6f7c3d1e-2b8a-4c5e-9f1d-3a7b5e9c2d40")
 }
 & $Jpackage @arguments
 if ($LASTEXITCODE -ne 0) { throw "jpackage failed" }

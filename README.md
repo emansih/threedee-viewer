@@ -1,6 +1,6 @@
 This is a Kotlin Multiplatform project targeting Android, Desktop (JVM), Web, built with the [Kotlin Toolchain](https://kotlin-toolchain.org/dev/).
 
-## Product Render
+## ThreeDee Viewer
 
 Upload a GLB (for example a bottle with a `hero_print` material) and the app renders it with [SceneView](https://sceneview.github.io/). Then upload a PNG or JPEG and it is printed on the bottle.
 
@@ -10,12 +10,25 @@ Upload a GLB (for example a bottle with a `hero_print` material) and the app ren
 - **Lighting:** SceneView's desktop viewer has no light from all around by default, so the side facing away from its sun would render black; desktop lights the model with a neutral grey studio, [studio.hdr](shared/resources@jvm/environments/studio.hdr). Android and the web use SceneView's own default environment.
 - JVM code targets Java 21, the oldest JDK SceneView's desktop renderer runs on.
 
+### Sharing a render by URL
+
+No cloud storage and no stored models: the GLB and the image both travel inside the link; the server only serves the app.
+
+```powershell
+.\kotlin.bat build -m webApp
+node webApp\server\serve.mjs 8080      # needs Node 18+
+```
+
+- **Making a link:** in the web app, upload a GLB and (optionally) an image, then press **Copy link**. Both are gzipped into one base64url string, `http://127.0.0.1:8080/v?=<base64url>`. The image is shrunk to fit the size limit (JPEG, or PNG when it has transparency).
+- **Opening it:** the app unpacks the query, shows the model and prints the image on it. The path is ignored.
+- **Limits:** the whole model is in the URL, and Chrome's limit is 2 MB, so only GLBs of about 1 MB gzipped (a bit over 1.3 MB as base64) or less fit. The server accepts headers up to 8 MB.
+
 ### Windows installer
 
 ```powershell
 .\desktopApp\package-windows.ps1                   # MSI, needs the WiX Toolset
 .\desktopApp\package-windows.ps1 -Type exe         # EXE installer, needs the WiX Toolset
-.\desktopApp\package-windows.ps1 -Type app-image   # portable folder with "Product Render.exe"
+.\desktopApp\package-windows.ps1 -Type app-image   # portable folder with "ThreeDee Viewer.exe"
 ```
 
 It uses `jpackage` from the PATH (JDK 21+; pass `-Jpackage <path>` for another one) and writes to `build\jpackage`. JDK 23's jpackage needs WiX 3: the script uses `%LOCALAPPDATA%\Programs\wix314` (the unpacked `wix314-binaries.zip` from the WiX GitHub releases, which needs no admin rights or .NET 3.5) when it's there, or pass `-WixDir`. It ships the libraries as separate jars rather than the toolchain's executable jar, because that jar keeps one library per file name and loses Compose's runtime to a same-named stub.
