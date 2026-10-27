@@ -25,6 +25,8 @@ import com.hisname.productrender.glb.BottlePrint
 import com.hisname.productrender.glb.Glb
 import com.hisname.productrender.glb.PrintImage
 import com.hisname.productrender.viewer.ModelViewer
+import com.hisname.productrender.viewer.ViewerCapture
+import com.hisname.productrender.viewer.savePng
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.name
@@ -54,6 +56,7 @@ private fun ProductRender(modifier: Modifier = Modifier) {
     var error by remember { mutableStateOf<String?>(null) }
     var working by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val capture = remember { ViewerCapture() }
 
     val canPrint = remember(model) { model?.let { BottlePrint.hasPrintArea(it) } ?: false }
     // The model as shown: the uploaded GLB with the image on its print area, if there is one
@@ -106,6 +109,19 @@ private fun ProductRender(modifier: Modifier = Modifier) {
         }
     }
 
+    val exportImage: () -> Unit = {
+        scope.launch {
+            try {
+                val png = capture.png() ?: error("There is nothing rendered to save")
+                savePng(png, "product-render")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = "Couldn't export the image: ${e.message}"
+            }
+        }
+    }
+
     Column(modifier) {
         if (model != null) {
             FlowRow(
@@ -120,6 +136,7 @@ private fun ProductRender(modifier: Modifier = Modifier) {
                     OutlinedButton(onClick = { print = null }, enabled = !working) { Text("Remove image") }
                 }
                 OutlinedButton(onClick = { modelPicker.launch() }, enabled = !working) { Text("Replace GLB") }
+                OutlinedButton(onClick = exportImage, enabled = !working) { Text("Export Image") }
             }
             if (!canPrint) {
                 Message("This model has no '${BottlePrint.MATERIAL}' material, so an image can't be put on it.")
@@ -136,7 +153,7 @@ private fun ProductRender(modifier: Modifier = Modifier) {
                     Button(onClick = { modelPicker.launch() }, enabled = !working) { Text("Upload GLB") }
                 }
             } else {
-                ModelViewer(glb, Modifier.fillMaxSize(), onError = { error = it })
+                ModelViewer(glb, capture, Modifier.fillMaxSize(), onError = { error = it })
             }
         }
     }
