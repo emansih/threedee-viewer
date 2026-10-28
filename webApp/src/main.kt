@@ -37,14 +37,16 @@ private suspend fun copyShareLink(glb: ByteArray, prints: Map<Int, PrintImage>):
 }
 
 /**
- * The link's query (`?=<base64url>`) holds everything: gzipped, the GLB's length (4 bytes, big endian),
+ * The link's fragment (`#=<base64url>`) holds everything: gzipped, the GLB's length (4 bytes, big endian),
  * the GLB, then for each image its material index and its length (4 bytes each, big endian) and the image.
- * Older links have one bare PNG or JPEG after the GLB, for [LEGACY_PRINT_MATERIAL]. The path is free, so `/v?=...` works.
+ * A browser never sends the fragment, so no server or host (Vercel's CDN stops at 14 KB) limits the link's size.
+ * Older links put it in the query (`?=`), and the oldest have one bare PNG or JPEG after the GLB, for
+ * [LEGACY_PRINT_MATERIAL]. The path is free, so `/v#=...` works.
  */
 @OptIn(ExperimentalEncodingApi::class)
 private suspend fun loadSharedLink(): SharedView? {
     // A URL-safe alphabet; '+' arrives as a space, which a query string can't hold
-    val encoded = locationQuery().removePrefix("?").removePrefix("=")
+    val encoded = locationHash().removePrefix("#").ifEmpty { locationQuery().removePrefix("?") }.removePrefix("=")
         .replace('+', '-').replace(' ', '-').replace('/', '_').trimEnd('=')
     if (encoded.isEmpty()) return null
     val standard = encoded.replace('-', '+').replace('_', '/')
@@ -80,6 +82,9 @@ private fun ByteArray.intAt(at: Int): Int {
 @JsFun("() => location.search")
 private external fun locationQuery(): String
 
+@JsFun("() => location.hash")
+private external fun locationHash(): String
+
 // Gunzips base64 into base64, with the browser's own DecompressionStream
 @JsFun("""(b64) => {
     const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
@@ -96,7 +101,7 @@ private external fun gunzipToBase64(base64: String): Promise<JsString>
 @JsFun("(text) => navigator.clipboard.writeText(text)")
 private external fun copyText(text: String): Promise<JsAny?>
 
-// Builds <origin>/v?=<base64url of gzip(GLB length + GLB + per image: material index, length, image)>, ints being
+// Builds <origin>/v#=<base64url of gzip(GLB length + GLB + per image: material index, length, image)>, ints being
 // 4 bytes big endian. [materials] and [imagesB64] are comma-separated, in the same order. The images are shrunk
 // together until the link fits (JPEG, or PNG when one has transparency); "" when even without them it is too long.
 @JsFun("""async (glbB64, materials, imagesB64, max) => {
@@ -121,7 +126,7 @@ private external fun copyText(text: String): Promise<JsAny?>
             out.set(image, at + 8);
             at += 8 + image.length;
         });
-        return location.origin + '/v?=' + b64url(await gzip(out));
+        return location.origin + '/v#=' + b64url(await gzip(out));
     };
     let url = await linkOf([]);
     if (url.length > max) return '';

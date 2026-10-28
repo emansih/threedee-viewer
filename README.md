@@ -20,9 +20,9 @@ No cloud storage and no stored models: the GLB and the images all travel inside 
 node webApp\server\serve.mjs 8080      # needs Node 18+
 ```
 
-- **Making a link:** in the web app, upload a GLB and (optionally) put images on it, then press **Copy link**. The model and each image with its material are gzipped into one base64url string, `http://127.0.0.1:8080/v?=<base64url>`. The images are shrunk together to fit the size limit (JPEG, or PNG when one has transparency).
-- **Opening it:** the app unpacks the query, shows the model and prints each image on its material. Older links holding one image put it on `hero_print`. The path is ignored.
-- **Limits:** the whole model is in the URL, and Chrome's limit is 2 MB, so only GLBs of about 1 MB gzipped (a bit over 1.3 MB as base64) or less fit. The server accepts headers up to 8 MB.
+- **Making a link:** in the web app, upload a GLB and (optionally) put images on it, then press **Copy link**. The model and each image with its material are gzipped into one base64url string in the URL's fragment, `http://127.0.0.1:8080/v#=<base64url>`. Browsers never send the fragment, so the server or host ([Vercel caps URLs at 14 KB](https://vercel.com/docs/errors/url_too_long)) doesn't limit the link's size; older `/v?=` links still open. The images are shrunk together to fit the size limit (JPEG, or PNG when one has transparency).
+- **Opening it:** the app unpacks the fragment (or an older link's query), shows the model and prints each image on its material. Older links holding one image put it on `hero_print`. The path is ignored.
+- **Limits:** the whole model is in the URL, and Chrome's limit is 2 MB, so only GLBs of about 1 MB gzipped (a bit over 1.3 MB as base64) or less fit. The server accepts headers up to 8 MB, for older query links.
 
 ### Windows installer
 

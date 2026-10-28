@@ -2,9 +2,10 @@
 //
 //   node webApp/server/serve.mjs [port] [appDir]
 //
-// A shared link is  http://127.0.0.1:<port>/v?=<base64url>, where the payload is the gzipped GLB and image
+// A shared link is  http://127.0.0.1:<port>/v#=<base64url>, where the payload is the gzipped GLB and images
 // (made by the app's "Copy link" button). Every path that isn't a file falls through to the app, which reads
-// the link itself; nothing is stored on the server, the model and image travel inside the URL.
+// the link itself; nothing is stored on the server, the model and images travel inside the URL's fragment,
+// which the browser never sends. Older links put the payload in the query (/v?=...), so big headers are allowed.
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { dirname, extname, join, normalize, sep } from 'node:path'
