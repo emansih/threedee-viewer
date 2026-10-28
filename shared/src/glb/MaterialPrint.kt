@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.double
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -14,30 +15,49 @@ import kotlinx.serialization.json.put
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
-class NoPrintAreaException : Exception("This model has no '${BottlePrint.MATERIAL}' material to print on")
-
 /**
- * Puts an image on the bottle's print area, stretched to fill it: once around, centred on
- * the front, and from the base edge to the cap joint, whatever the image's aspect ratio.
- *
- * The print area's UVs already run once around (u, seam at the back, 0.5 at the front) and
- * from the base edge to the cap joint (v), so the image maps onto them as it is.
+ * Puts images on a model's materials, each stretched over its material's own UVs whatever
+ * the image's aspect ratio. On the bottle's `hero_print` that is once around, centred on the
+ * front, and from the base edge to the cap joint.
  */
-object BottlePrint {
-    const val MATERIAL = "hero_print"
-
+object MaterialPrint {
     private const val LINEAR = 9729
     private const val LINEAR_MIPMAP_LINEAR = 9987
     private const val CLAMP_TO_EDGE = 33071
 
-    fun hasPrintArea(glb: ByteArray): Boolean = printMaterialIndex(Glb.parse(glb).json) != null
+    /** The material's name, or its number when it has none. */
+    fun materialName(glb: ByteArray, materialIndex: Int): String =
+        Glb.parse(glb).json.array("materials").getOrNull(materialIndex)?.jsonObject?.get("name")?.jsonPrimitive?.contentOrNull
+            ?: "Material ${materialIndex + 1}"
 
-    /** Returns [glb] with [print] on the print area; the bottle colour shows through transparent pixels. */
-    fun apply(glb: ByteArray, print: PrintImage): ByteArray {
+    /** The index of the first material called [name], or null. */
+    fun materialIndex(glb: ByteArray, name: String): Int? =
+        Glb.parse(glb).json.array("materials").indexOfFirst { it.jsonObject["name"]?.jsonPrimitive?.contentOrNull == name }
+            .takeIf { it >= 0 }
+
+    /** True when some primitive drawn with the material has the UVs an image is mapped onto. */
+    fun canPrint(glb: ByteArray, materialIndex: Int): Boolean {
+        var found = false
+        forEachMeshPrimitive(Glb.parse(glb).json) { primitive, _ ->
+            if (primitive["material"]?.jsonPrimitive?.intOrNull == materialIndex &&
+                primitive["attributes"]?.jsonObject?.containsKey("TEXCOORD_0") == true
+            ) {
+                found = true
+            }
+        }
+        return found
+    }
+
+    /** Returns [glb] with each image of [prints] on the material it is keyed by. */
+    fun apply(glb: ByteArray, prints: Map<Int, PrintImage>): ByteArray =
+        prints.entries.fold(glb) { model, (materialIndex, print) -> apply(model, materialIndex, print) }
+
+    /** Returns [glb] with [print] on material [materialIndex]; the material colour shows through transparent pixels. */
+    fun apply(glb: ByteArray, materialIndex: Int, print: PrintImage): ByteArray {
         val parsed = Glb.parse(glb)
         val json = parsed.json
-        val materialIndex = printMaterialIndex(json) ?: throw NoPrintAreaException()
-        val material = json.array("materials")[materialIndex].jsonObject
+        val material = json.array("materials").getOrNull(materialIndex)?.jsonObject
+            ?: throw GlbFormatException("The model has no material ${materialIndex + 1}")
         val pbr = material["pbrMetallicRoughness"]?.jsonObject ?: JsonObject(emptyMap())
 
         // glTF multiplies the texture by the material colour rather than layering it, so the
@@ -86,7 +106,7 @@ object BottlePrint {
             .with("samplers", JsonArray(json.array("samplers") + buildJsonObject {
                 put("magFilter", LINEAR)
                 put("minFilter", LINEAR_MIPMAP_LINEAR)
-                // the UVs reach just past 1 at the back seam: clamp rather than repeat a sliver
+                // the bottle's UVs reach just past 1 at the back seam: clamp rather than repeat a sliver
                 put("wrapS", CLAMP_TO_EDGE)
                 put("wrapT", CLAMP_TO_EDGE)
             }))
@@ -108,10 +128,6 @@ object BottlePrint {
         c <= 0.0031308 -> 12.92 * c
         else -> 1.055 * c.pow(1 / 2.4) - 0.055
     }.coerceIn(0.0, 1.0)
-
-    private fun printMaterialIndex(json: JsonObject): Int? =
-        json.array("materials").indexOfFirst { it.jsonObject["name"]?.jsonPrimitive?.contentOrNull == MATERIAL }
-            .takeIf { it >= 0 }
 }
 
 private fun JsonObject.array(key: String): JsonArray = this[key]?.jsonArray ?: JsonArray(emptyList())

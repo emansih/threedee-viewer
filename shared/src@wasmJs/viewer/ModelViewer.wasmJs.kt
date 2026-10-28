@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
+import com.hisname.productrender.glb.Ray
 import kotlinx.coroutines.await
 import kotlin.js.Promise
 
@@ -20,8 +21,9 @@ import kotlin.js.Promise
  * sceneview.js (Filament.js), loaded by index.html, on a canvas laid over this composable.
  */
 @Composable
-actual fun ModelViewer(glb: ByteArray, capture: ViewerCapture, modifier: Modifier, onError: (String) -> Unit) {
+actual fun ModelViewer(glb: ByteArray, capture: ViewerCapture, modifier: Modifier, onError: (String) -> Unit, onTap: (Ray) -> Unit) {
     val currentOnError by rememberUpdatedState(onError)
+    val currentOnTap by rememberUpdatedState(onTap)
     val canvas = remember { createOverlayCanvas() }
     DisposableEffect(canvas, capture) {
         capture.source = { canvasToPng(canvas).await<Uint8Array>().toByteArray() }
@@ -37,7 +39,15 @@ actual fun ModelViewer(glb: ByteArray, capture: ViewerCapture, modifier: Modifie
     }
     val created = viewer
     DisposableEffect(created) {
-        onDispose { created?.dispose() }
+        created?.let { sceneView ->
+            listenForTaps(canvas, sceneView) { ox, oy, oz, dx, dy, dz ->
+                currentOnTap(Ray(listOf(ox, oy, oz).map { it.toFloat() }, listOf(dx, dy, dz).map { it.toFloat() }))
+            }
+        }
+        onDispose {
+            stopTaps(canvas)
+            created?.dispose()
+        }
     }
     LaunchedEffect(viewer, glb) {
         val sceneView = viewer ?: return@LaunchedEffect
@@ -84,6 +94,35 @@ private external interface Uint8Array : JsAny
     return c;
 }""")
 private external fun createOverlayCanvas(): Canvas
+
+// A click that didn't drag (the drag orbits) gives the camera's ray through it, in world space. sceneview.js has
+// no picking, so this reads its Filament camera: the projection's scale (and shift) turns the click into a view
+// direction, which the camera's own axes take to world space.
+@JsFun("""(c, sv, onTap) => {
+    let down = null;
+    const onDown = e => { down = { x: e.clientX, y: e.clientY }; };
+    const onUp = e => {
+        const start = down;
+        down = null;
+        const camera = sv._camera;
+        if (!start || !camera || Math.hypot(e.clientX - start.x, e.clientY - start.y) > 5) return;
+        const r = c.getBoundingClientRect();
+        const x = 2 * (e.clientX - r.left) / r.width - 1, y = 1 - 2 * (e.clientY - r.top) / r.height;
+        const p = camera.getProjectionMatrix();
+        const vx = (x + p[8]) / p[0], vy = (y + p[9]) / p[5];
+        // Despite its name, getLeftVector() is the camera's +X axis: screen right
+        const eye = camera.getPosition(), f = camera.getForwardVector(), u = camera.getUpVector(), right = camera.getLeftVector();
+        onTap(eye[0], eye[1], eye[2],
+            f[0] + u[0] * vy + right[0] * vx, f[1] + u[1] * vy + right[1] * vx, f[2] + u[2] * vy + right[2] * vx);
+    };
+    c.addEventListener('pointerdown', onDown);
+    c.addEventListener('pointerup', onUp);
+    c._taps = [onDown, onUp];
+}""")
+private external fun listenForTaps(canvas: Canvas, sceneView: SceneViewJs, onTap: (Double, Double, Double, Double, Double, Double) -> Unit)
+
+@JsFun("(c) => { if (c._taps) { c.removeEventListener('pointerdown', c._taps[0]); c.removeEventListener('pointerup', c._taps[1]); c._taps = null; } }")
+private external fun stopTaps(canvas: Canvas)
 
 @JsFun("(c) => c.remove()")
 private external fun removeOverlayCanvas(canvas: Canvas)

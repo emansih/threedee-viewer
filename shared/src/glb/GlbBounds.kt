@@ -19,40 +19,46 @@ data class Bounds(val min: List<Float>, val max: List<Float>) {
 /** The world-space bounds of the default scene's meshes, from their POSITION min/max. */
 fun glbBounds(glb: ByteArray): Bounds? {
     val json = Glb.parse(glb).json
-    val nodes = json["nodes"]?.jsonArray ?: return null
+    val lo = FloatArray(3) { Float.MAX_VALUE }
+    val hi = FloatArray(3) { -Float.MAX_VALUE }
+    forEachMeshPrimitive(json) { primitive, world ->
+        val accessor = json["accessors"]!!.jsonArray[
+            primitive["attributes"]!!.jsonObject["POSITION"]!!.jsonPrimitive.int,
+        ].jsonObject
+        val aMin = accessor["min"]?.jsonArray?.map { it.jsonPrimitive.double } ?: return@forEachMeshPrimitive
+        val aMax = accessor["max"]?.jsonArray?.map { it.jsonPrimitive.double } ?: return@forEachMeshPrimitive
+        for (corner in 0 until 8) {
+            val p = world.transform(List(3) { if (corner shr it and 1 == 0) aMin[it] else aMax[it] })
+            for (i in 0..2) {
+                lo[i] = min(lo[i], p[i].toFloat())
+                hi[i] = max(hi[i], p[i].toFloat())
+            }
+        }
+    }
+    return if (lo[0] <= hi[0]) Bounds(lo.toList(), hi.toList()) else null
+}
+
+/** Calls [block] for every mesh primitive of the default scene, with its node's world transform. */
+internal fun forEachMeshPrimitive(json: JsonObject, block: (primitive: JsonObject, world: Matrix) -> Unit) {
+    val nodes = json["nodes"]?.jsonArray ?: return
     val sceneIndex = json["scene"]?.jsonPrimitive?.int ?: 0
     val roots = json["scenes"]?.jsonArray?.getOrNull(sceneIndex)?.jsonObject?.get("nodes")?.jsonArray
         ?.map { it.jsonPrimitive.int } ?: nodes.indices.toList()
-    val lo = FloatArray(3) { Float.MAX_VALUE }
-    val hi = FloatArray(3) { -Float.MAX_VALUE }
 
     fun visit(index: Int, parent: Matrix) {
         val node = nodes[index].jsonObject
         val world = parent * localMatrix(node)
         node["mesh"]?.jsonPrimitive?.int?.let { mesh ->
-            for (primitive in json["meshes"]!!.jsonArray[mesh].jsonObject["primitives"]!!.jsonArray) {
-                val accessor = json["accessors"]!!.jsonArray[
-                    primitive.jsonObject["attributes"]!!.jsonObject["POSITION"]!!.jsonPrimitive.int,
-                ].jsonObject
-                val aMin = accessor["min"]?.jsonArray?.map { it.jsonPrimitive.double } ?: continue
-                val aMax = accessor["max"]?.jsonArray?.map { it.jsonPrimitive.double } ?: continue
-                for (corner in 0 until 8) {
-                    val p = world.transform(List(3) { if (corner shr it and 1 == 0) aMin[it] else aMax[it] })
-                    for (i in 0..2) {
-                        lo[i] = min(lo[i], p[i].toFloat())
-                        hi[i] = max(hi[i], p[i].toFloat())
-                    }
-                }
-            }
+            json["meshes"]?.jsonArray?.getOrNull(mesh)?.jsonObject?.get("primitives")?.jsonArray
+                ?.forEach { block(it.jsonObject, world) }
         }
         node["children"]?.jsonArray?.forEach { visit(it.jsonPrimitive.int, world) }
     }
     roots.forEach { visit(it, Matrix.IDENTITY) }
-    return if (lo[0] <= hi[0]) Bounds(lo.toList(), hi.toList()) else null
 }
 
 /** Column-major 4×4, as glTF stores it. */
-private class Matrix(val m: DoubleArray) {
+internal class Matrix(val m: DoubleArray) {
     operator fun times(o: Matrix) = Matrix(DoubleArray(16) { i ->
         val col = i / 4
         val row = i % 4

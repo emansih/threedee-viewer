@@ -14,14 +14,14 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class BottlePrintTest {
-    private fun glb(materialName: String = "hero_print", bin: ByteArray = byteArrayOf(1, 2, 3)): ByteArray {
+class MaterialPrintTest {
+    private fun glb(bin: ByteArray = byteArrayOf(1, 2, 3)): ByteArray {
         val json = Json.parseToJsonElement(
             """{"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],
                "nodes":[{"name":"shell","mesh":0,"translation":[0,1,0]}],
-               "meshes":[{"primitives":[{"attributes":{"POSITION":0},"material":0}]}],
+               "meshes":[{"primitives":[{"attributes":{"POSITION":0,"TEXCOORD_0":0},"material":0}]}],
                "accessors":[{"count":2,"type":"VEC3","componentType":5126,"min":[-1,0,-1],"max":[1,2,1]}],
-               "materials":[{"name":"$materialName","pbrMetallicRoughness":{"baseColorFactor":[0,0,1,1]}}],
+               "materials":[{"name":"hero_print","pbrMetallicRoughness":{"baseColorFactor":[0,0,1,1]}}],
                "buffers":[{"byteLength":${bin.size}}]}""",
         ).jsonObject
         return Glb(json, bin).toBytes()
@@ -74,9 +74,9 @@ class BottlePrintTest {
     }
 
     @Test
-    fun `puts the image on the print material, embedded in the BIN chunk`() {
+    fun `puts the image on the material, embedded in the BIN chunk`() {
         val image = PrintImage.read(jpeg(width = 2000, height = 1000))
-        val patched = Glb.parse(BottlePrint.apply(glb(), image))
+        val patched = Glb.parse(MaterialPrint.apply(glb(), 0, image))
         val json = patched.json
 
         val material = json.at("materials", 0)
@@ -95,14 +95,16 @@ class BottlePrintTest {
         assertEquals(33071, json.at("samplers", texture.int("sampler")).int("wrapS"))
         assertEquals(List(4) { 1.0 }, material.at("pbrMetallicRoughness")["baseColorFactor"]!!.jsonArray.map { it.jsonPrimitive.double })
 
-        // stretched over the print area's own UVs, whatever the image's aspect ratio
+        // stretched over the material's own UVs, whatever the image's aspect ratio
         assertFalse(textureInfo.containsKey("extensions"))
     }
 
     @Test
-    fun `models without the print material are refused`() {
-        assertFalse(BottlePrint.hasPrintArea(glb(materialName = "steel")))
-        assertFailsWith<NoPrintAreaException> { BottlePrint.apply(glb(materialName = "steel"), PrintImage.read(jpeg(2, 1))) }
+    fun `only materials with texture coordinates can take an image`() {
+        assertTrue(MaterialPrint.canPrint(glb(), 0))
+        assertFalse(MaterialPrint.canPrint(glb(), 1))
+        assertEquals(0, MaterialPrint.materialIndex(glb(), "hero_print"))
+        assertEquals("hero_print", MaterialPrint.materialName(glb(), 0))
     }
 
     @Test
